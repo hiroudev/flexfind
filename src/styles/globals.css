@@ -1,0 +1,6 @@
+@import 'flex-design/css/tokens.css';
+@import 'flex-design/css/base.css';
+
+/* Both windows are normal opaque windows (v2) that fill their own panel
+   background from the root component, so the default flex-design
+   `body { background: var(--bg-page) }` is fine — nothing to override here. */

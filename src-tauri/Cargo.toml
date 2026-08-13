@@ -25,6 +25,10 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 sysinfo = { version = "0.33", default-features = false, features = ["disk"] }
 walkdir = "2"
 bincode = "1"
+# SIMD substring search. `str::find` recompiles its needle analysis on every
+# call; `memmem::Finder` is built once per search and then run against ~1.3M
+# names, which is exactly the shape of the scan.
+memchr = "2"
 tauri-plugin-window-state = "2"
 base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["png"] }
@@ -41,9 +45,21 @@ windows = { version = "0.59", features = [
     "Win32_System_Threading",
 ] }
 
+# The search hot loop streams tens of MB of packed name data per keystroke,
+# so this binary is optimized for speed, not size. `opt-level = "s"` (the
+# previous setting) holds back vectorization in exactly the substring-scan
+# inner loop that dominates a search.
 [profile.release]
 panic = "abort"
 codegen-units = 1
 lto = true
-opt-level = "s"
+opt-level = 3
 strip = true
+
+# `tauri dev` builds with this profile. At the default `opt-level = 0` the
+# scan runs an order of magnitude slower than the shipped binary, which makes
+# dev-time performance observations meaningless (and misled an earlier
+# investigation). Level 2 keeps builds reasonably quick while staying
+# representative.
+[profile.dev]
+opt-level = 2

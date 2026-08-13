@@ -110,6 +110,8 @@ pub fn run() {
             index::engine::get_index_status,
             index::engine::rebuild_index,
             index::engine::set_index_paused,
+            index::engine::get_index_memory,
+            index::engine::trim_working_set,
             settings::get_settings,
             settings::set_settings,
             settings::set_columns,

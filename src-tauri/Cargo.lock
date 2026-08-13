@@ -823,6 +823,7 @@ dependencies = [
  "bincode",
  "chrono",
  "image",
+ "memchr",
  "serde",
  "serde_json",
  "sysinfo",

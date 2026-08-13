@@ -7,6 +7,7 @@
 // FlexExplorer's src/fs/bridge.ts).
 
 import type {
+  ArenaMemory,
   ColumnConfig,
   RootIndexStatus,
   SearchResponse,
@@ -56,9 +57,9 @@ const MOCK_SETTINGS: Settings = {
 }
 
 const MOCK_STATUS: RootIndexStatus[] = [
-  { root: 'C:', label: 'Windows-SSD', state: 'done', scannedCount: 214830, isDrive: true, loadedFromDisk: true },
-  { root: 'D:', label: 'Data', state: 'done', scannedCount: 98120, isDrive: true, loadedFromDisk: true },
-  { root: '\\\\nas\\docs', label: 'docs', state: 'done', scannedCount: 51200, isDrive: false, loadedFromDisk: true },
+  { root: 'C:', label: 'Windows-SSD', state: 'done', scannedCount: 214830, isDrive: true, loadedFromDisk: true, skippedDirs: 0, skippedSamples: [] },
+  { root: 'D:', label: 'Data', state: 'done', scannedCount: 98120, isDrive: true, loadedFromDisk: true, skippedDirs: 0, skippedSamples: [] },
+  { root: '\\\\nas\\docs', label: 'docs', state: 'done', scannedCount: 51200, isDrive: false, loadedFromDisk: true, skippedDirs: 0, skippedSamples: [] },
 ]
 
 function mockSearch(
@@ -144,6 +145,18 @@ export async function rebuildIndex(): Promise<void> {
 export async function setIndexPaused(paused: boolean): Promise<void> {
   if (!isTauri) return
   await invoke('set_index_paused', { paused })
+}
+
+/** Per-root heap accounting for the index: `[root, breakdown][]`. */
+export async function getIndexMemory(): Promise<[string, ArenaMemory][]> {
+  if (!isTauri) return []
+  return invoke<[string, ArenaMemory][]>('get_index_memory')
+}
+
+/** Release the process working set so the next search pays the cold cost. */
+export async function trimWorkingSet(): Promise<void> {
+  if (!isTauri) return
+  await invoke('trim_working_set')
 }
 
 // ---- settings ----

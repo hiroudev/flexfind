@@ -10,8 +10,8 @@ use std::path::Path;
 use std::time::SystemTime;
 use walkdir::WalkDir;
 
-use super::pathmatch::{entry_from_path, path_has_prefix};
-use super::types::{IndexedEntry, RootScanState};
+use super::pathmatch::path_has_prefix;
+use super::types::RootScanState;
 
 /// How many entries between progress-counter updates / pause checkpoints.
 const PROGRESS_INTERVAL: u64 = 2000;
@@ -63,6 +63,42 @@ fn hidden_system_flags(_m: &std::fs::Metadata) -> (bool, bool) {
     (false, false)
 }
 
+/// Case-insensitive `.lnk` test done on raw bytes, so the shortcut filter
+/// doesn't allocate a lowercased copy of every path in the walk.
+fn ends_with_lnk(s: &str) -> bool {
+    let b = s.as_bytes();
+    b.len() >= 4 && b[b.len() - 4..].eq_ignore_ascii_case(b".lnk")
+}
+
+/// Subtrees the walk could not read and therefore skipped entirely.
+///
+/// These were previously swallowed without a trace, which made "is this
+/// folder actually being indexed?" unanswerable — a whole cloud-storage or
+/// permission-protected tree could be missing from every search with no
+/// indication anywhere in the UI. The count feeds the settings screen; the
+/// sample paths make it obvious *which* tree is missing.
+#[derive(Default, Clone)]
+pub struct SkippedDirs {
+    pub count: u64,
+    pub samples: Vec<String>,
+}
+
+/// How many example paths to keep. Enough to identify the culprit, few
+/// enough that a drive full of protected system folders can't grow this
+/// without bound.
+const MAX_SKIPPED_SAMPLES: usize = 5;
+
+impl SkippedDirs {
+    fn record(&mut self, path: Option<&Path>) {
+        self.count += 1;
+        if self.samples.len() < MAX_SKIPPED_SAMPLES {
+            if let Some(p) = path {
+                self.samples.push(p.to_string_lossy().to_string());
+            }
+        }
+    }
+}
+
 /// Walk one drive/root path, respecting `excludes`, pushing entries into
 /// `sink` and invoking `on_progress(scanned_count)` periodically so the
 /// frontend counter can update without a per-file event flood. `is_paused`
@@ -86,10 +122,11 @@ pub fn walk_root(
     is_drive: bool,
     excludes: &[String],
     filters: FilterOpts,
-    sink: &mut dyn FnMut(IndexedEntry),
+    sink: &mut dyn FnMut(&str, bool, u64, i64),
     on_progress: &mut dyn FnMut(u64),
     is_paused: &dyn Fn() -> bool,
     is_cancelled: &dyn Fn() -> bool,
+    skipped: &mut SkippedDirs,
 ) -> RootScanState {
     if std::fs::read_dir(root).is_err() {
         return if is_drive {
@@ -122,11 +159,19 @@ pub fn walk_root(
         }
         let entry = match entry_result {
             Ok(e) => e,
-            Err(_) => continue, // access-denied or similar on a subdirectory
+            // Access-denied or similar on a subdirectory: the walk carries
+            // on, but the whole subtree below it is missing from the index,
+            // so record it rather than losing the fact.
+            Err(e) => {
+                skipped.record(e.path());
+                continue;
+            }
         };
         let path = entry.path();
         let folder = entry.file_type().is_dir();
-        let path_str = path.to_string_lossy().to_string();
+        // Borrowed for well-formed UTF-8 paths (the overwhelming majority),
+        // so this is allocation-free per entry in the common case.
+        let path_str = path.to_string_lossy();
         let mut hidden = false;
         let mut system = false;
         let (size, modified) = match entry.metadata() {
@@ -147,11 +192,11 @@ pub fn walk_root(
         if (filters.exclude_hidden && hidden) || (filters.exclude_system && system) {
             continue;
         }
-        if filters.exclude_shortcuts && !folder && path_str.to_ascii_lowercase().ends_with(".lnk") {
+        if filters.exclude_shortcuts && !folder && ends_with_lnk(&path_str) {
             continue;
         }
 
-        sink(entry_from_path(path_str, folder, size, modified));
+        sink(&path_str, folder, size, modified);
         count += 1;
         if count % PROGRESS_INTERVAL == 0 {
             on_progress(count);

@@ -36,6 +36,9 @@ export interface RootIndexStatus {
   scannedCount: number
   isDrive: boolean
   loadedFromDisk: boolean
+  /** Subtrees the last walk couldn't read — non-zero means results are incomplete. */
+  skippedDirs: number
+  skippedSamples: string[]
 }
 
 export type SortColumn = 'name' | 'path' | 'size' | 'modified'
@@ -88,6 +91,21 @@ export interface Settings {
 }
 
 export type ReindexMode = 'interval' | 'daily' | 'manual'
+
+/** Exact heap accounting for one root's packed index, from Rust. */
+export interface ArenaMemory {
+  entries: number
+  dirs: number
+  exts: number
+  namesLowerBytes: number
+  namesBytes: number
+  dirBytes: number
+  extBytes: number
+  columnBytes: number
+  totalBytes: number
+  /** Bytes a plain term query actually reads — what governs cold-search latency. */
+  scannedBytes: number
+}
 
 export interface SiblingAvailability {
   flexExplorer: string | null

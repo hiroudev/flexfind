@@ -57,9 +57,9 @@ const MOCK_SETTINGS: Settings = {
 }
 
 const MOCK_STATUS: RootIndexStatus[] = [
-  { root: 'C:', label: 'Windows-SSD', state: 'done', scannedCount: 214830, isDrive: true, loadedFromDisk: true, skippedDirs: 0, skippedSamples: [] },
-  { root: 'D:', label: 'Data', state: 'done', scannedCount: 98120, isDrive: true, loadedFromDisk: true, skippedDirs: 0, skippedSamples: [] },
-  { root: '\\\\nas\\docs', label: 'docs', state: 'done', scannedCount: 51200, isDrive: false, loadedFromDisk: true, skippedDirs: 0, skippedSamples: [] },
+  { root: 'C:', label: 'Windows-SSD', state: 'done', scannedCount: 214830, isDrive: true, loadedFromDisk: true, skippedDirs: 0, skippedSamples: [], lastError: null },
+  { root: 'D:', label: 'Data', state: 'done', scannedCount: 98120, isDrive: true, loadedFromDisk: true, skippedDirs: 0, skippedSamples: [], lastError: null },
+  { root: '\\\\nas\\docs', label: 'docs', state: 'done', scannedCount: 51200, isDrive: false, loadedFromDisk: true, skippedDirs: 0, skippedSamples: [], lastError: null },
 ]
 
 function mockSearch(

@@ -1,8 +1,37 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useSettingsStore } from '../../../store/useSettingsStore'
 import SmallBtn from '../../shared/SmallBtn'
 
-function ScopeCard({ id }: { id: string }) {
+/** Six-dot grip, the conventional "drag me" affordance. */
+function GripIcon() {
+  return (
+    <svg width={10} height={16} viewBox="0 0 10 16" fill="currentColor" aria-hidden>
+      {[3, 8, 13].map(y =>
+        [2, 8].map(x => <circle key={`${x}-${y}`} cx={x} cy={y} r={1.3} />),
+      )}
+    </svg>
+  )
+}
+
+function ScopeCard({
+  id,
+  dragging,
+  isOver,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+}: {
+  id: string
+  dragging: boolean
+  isOver: boolean
+  onDragStart: () => void
+  onDragOver: () => void
+  onDragLeave: () => void
+  onDrop: () => void
+  onDragEnd: () => void
+}) {
   const scope = useSettingsStore(s => s.settings.scopes.find(sc => sc.id === id)!)
   const renameScope = useSettingsStore(s => s.renameScope)
   const removeScope = useSettingsStore(s => s.removeScope)
@@ -25,8 +54,49 @@ function ScopeCard({ id }: { id: string }) {
   }
 
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, marginBottom: 12 }}>
+    <div
+      onDragOver={e => {
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+        onDragOver()
+      }}
+      onDragLeave={onDragLeave}
+      onDrop={e => {
+        e.preventDefault()
+        onDrop()
+      }}
+      style={{
+        border: '1px solid ' + (isOver ? 'var(--accent)' : 'var(--border)'),
+        borderRadius: 8,
+        padding: 14,
+        marginBottom: 12,
+        opacity: dragging ? 0.5 : 1,
+        background: isOver ? 'var(--accent-soft)' : 'transparent',
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        {/* Only the grip is draggable: making the whole card draggable would
+            steal text selection and caret placement from the name field. */}
+        <div
+          draggable
+          onDragStart={e => {
+            e.dataTransfer.effectAllowed = 'move'
+            e.dataTransfer.setData('text/plain', id)
+            onDragStart()
+          }}
+          onDragEnd={onDragEnd}
+          title="ドラッグして並べ替え"
+          style={{
+            flex: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 2px',
+            color: 'var(--text-faint)',
+            cursor: 'grab',
+          }}
+        >
+          <GripIcon />
+        </div>
         <input
           value={scope.name}
           onChange={e => void renameScope(id, e.target.value)}
@@ -87,6 +157,14 @@ function ScopeCard({ id }: { id: string }) {
 export default function ScopesTab() {
   const scopes = useSettingsStore(s => s.settings.scopes)
   const addScope = useSettingsStore(s => s.addScope)
+  const reorderScopes = useSettingsStore(s => s.reorderScopes)
+
+  // Held in a ref rather than state: the drag source never needs to trigger
+  // a render on its own, and a ref survives the drag without re-running the
+  // dragstart handler.
+  const dragIdRef = useRef<string | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [overId, setOverId] = useState<string | null>(null)
 
   return (
     <div>
@@ -94,10 +172,34 @@ export default function ScopesTab() {
       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 }}>
         よく使う検索範囲を「検索対象」として保存できます。メイン画面のドロップダウンでワンタッチ切替。
         「全体」(すべての索引を検索)は常に利用でき、設定不要です。
+        左端の <span style={{ fontFamily: 'var(--mono)' }}>⠿</span> をドラッグすると並び順を入れ替えられ、その順序がドロップダウンにも反映されます。
       </div>
 
       {scopes.map(s => (
-        <ScopeCard key={s.id} id={s.id} />
+        <ScopeCard
+          key={s.id}
+          id={s.id}
+          dragging={draggingId === s.id}
+          isOver={overId === s.id && draggingId !== null && draggingId !== s.id}
+          onDragStart={() => {
+            dragIdRef.current = s.id
+            setDraggingId(s.id)
+          }}
+          onDragOver={() => setOverId(prev => (prev === s.id ? prev : s.id))}
+          onDragLeave={() => setOverId(prev => (prev === s.id ? null : prev))}
+          onDrop={() => {
+            const src = dragIdRef.current
+            if (src) void reorderScopes(src, s.id)
+            dragIdRef.current = null
+            setDraggingId(null)
+            setOverId(null)
+          }}
+          onDragEnd={() => {
+            dragIdRef.current = null
+            setDraggingId(null)
+            setOverId(null)
+          }}
+        />
       ))}
 
       <div

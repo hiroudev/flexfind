@@ -81,6 +81,15 @@ fn ends_with_lnk(s: &str) -> bool {
 pub struct SkippedDirs {
     pub count: u64,
     pub samples: Vec<String>,
+    /// The OS error from opening the root itself, when that is what failed.
+    ///
+    /// Without this the UI could only say "skipped", which does not
+    /// distinguish the cases that need completely different fixes: access
+    /// denied (often because the app is running elevated, and per-user
+    /// cloud mounts such as Box are invisible to an elevated token), the
+    /// path not existing yet (a cloud client that has not mounted), or an
+    /// unreachable network share.
+    pub root_error: Option<String>,
 }
 
 /// How many example paths to keep. Enough to identify the culprit, few
@@ -128,7 +137,8 @@ pub fn walk_root(
     is_cancelled: &dyn Fn() -> bool,
     skipped: &mut SkippedDirs,
 ) -> RootScanState {
-    if std::fs::read_dir(root).is_err() {
+    if let Err(e) = std::fs::read_dir(root) {
+        skipped.root_error = Some(e.to_string());
         return if is_drive {
             RootScanState::SkippedNoAccess
         } else {

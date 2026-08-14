@@ -110,6 +110,14 @@ export default function IndexingTab() {
             {!r.enabled && (
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-faint)', flex: 'none' }}>無効</div>
             )}
+            {r.enabled && st?.lastError && (
+              <div
+                title={st.lastError}
+                style={{ fontSize: 10.5, color: 'var(--danger)', flex: 'none', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {st.lastError}
+              </div>
+            )}
             {!r.isDrive && (
               <div
                 onClick={() => void removeRoot(r.path)}

@@ -15,7 +15,12 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+# `devtools` keeps the webview inspector available in release builds. This
+# app is diagnosed on machines that can't run a dev server, and a UI problem
+# that only reproduces there is otherwise invisible — there is no console to
+# read and no way to tell "handler never fired" from "handler fired and
+# rendered nothing".
+tauri = { version = "2", features = ["tray-icon", "devtools"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-dialog = "2"

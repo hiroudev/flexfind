@@ -34,6 +34,9 @@ interface SettingsState {
   addScope: (name: string) => Promise<void>
   renameScope: (id: string, name: string) => Promise<void>
   removeScope: (id: string) => Promise<void>
+  /** Move scope `srcId` to `destId`'s position; the saved order is what the
+   * main window's scope dropdown lists. */
+  reorderScopes: (srcId: string, destId: string) => Promise<void>
   addScopeIncludeFolder: (id: string) => Promise<void>
   addScopeIncludeManual: (id: string, path: string) => Promise<boolean>
   removeScopeInclude: (id: string, path: string) => Promise<void>
@@ -201,6 +204,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => {
 
     async removeScope(id) {
       await persist({ scopes: get().settings.scopes.filter(s => s.id !== id) })
+    },
+
+    async reorderScopes(srcId, destId) {
+      if (srcId === destId) return
+      const scopes = [...get().settings.scopes]
+      const si = scopes.findIndex(s => s.id === srcId)
+      const di = scopes.findIndex(s => s.id === destId)
+      if (si < 0 || di < 0) return
+      const [moved] = scopes.splice(si, 1)
+      scopes.splice(di, 0, moved)
+      await persist({ scopes })
     },
 
     async addScopeIncludeFolder(id) {

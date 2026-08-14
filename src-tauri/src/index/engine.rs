@@ -272,6 +272,7 @@ impl IndexEngine {
                         // previous run couldn't read.
                         skipped_dirs: 0,
                         skipped_samples: Vec::new(),
+                        last_error: None,
                     },
                 );
             }
@@ -413,9 +414,9 @@ impl IndexEngine {
                 // Carry the previous walk's skip report until this one
                 // replaces it, so the warning doesn't blink out of the UI
                 // for the duration of every refresh.
-                let (skipped_dirs, skipped_samples) = prev_root
-                    .map(|p| (p.skipped_dirs, p.skipped_samples.clone()))
-                    .unwrap_or((0, Vec::new()));
+                let (skipped_dirs, skipped_samples, last_error) = prev_root
+                    .map(|p| (p.skipped_dirs, p.skipped_samples.clone(), p.last_error.clone()))
+                    .unwrap_or((0, Vec::new(), None));
                 status.insert(
                     r.root.clone(),
                     RootIndexStatus {
@@ -427,6 +428,7 @@ impl IndexEngine {
                         loaded_from_disk,
                         skipped_dirs,
                         skipped_samples,
+                        last_error,
                     },
                 );
             }
@@ -675,7 +677,11 @@ fn scan_one_root(
             let mut status = engine.status.write().expect("status lock poisoned");
             if let Some(st) = status.get_mut(&r.root) {
                 st.state = state;
+                st.last_error = skipped.root_error.clone();
             }
+        }
+        if let Some(err) = &skipped.root_error {
+            eprintln!("FlexFind: cannot read root {}: {err}", r.root);
         }
         emit_status(&app, &engine);
         return;
@@ -713,6 +719,7 @@ fn scan_one_root(
             st.loaded_from_disk = false; // now serving a fresh live walk
             st.skipped_dirs = skipped.count;
             st.skipped_samples = skipped.samples.clone();
+            st.last_error = None; // the root itself read fine this time
         }
     }
     if skipped.count > 0 {

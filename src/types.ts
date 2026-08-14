@@ -39,6 +39,8 @@ export interface RootIndexStatus {
   /** Subtrees the last walk couldn't read — non-zero means results are incomplete. */
   skippedDirs: number
   skippedSamples: string[]
+  /** OS error when the root itself couldn't be opened (access denied vs not found). */
+  lastError: string | null
 }
 
 export type SortColumn = 'name' | 'path' | 'size' | 'modified'

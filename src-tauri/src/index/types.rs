@@ -481,6 +481,9 @@ pub struct RootIndexStatus {
     pub skipped_dirs: u64,
     /// A few example paths from `skipped_dirs`, to identify what's missing.
     pub skipped_samples: Vec<String>,
+    /// The OS error when the root itself couldn't be opened, verbatim, so
+    /// "access denied" and "path not found" are distinguishable in the UI.
+    pub last_error: Option<String>,
 }
 
 /// Which column a search result set is sorted by.
